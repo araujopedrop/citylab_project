@@ -39,11 +39,6 @@ private:
     }
 
     get_largest_distance_ray();
-
-    /*
-    RCLCPP_INFO(this->get_logger(), "ranges[360]: '%f'. Doing '%s' ",
-                msg->ranges[360], robot_action_.c_str());
-    */
   }
 
   // Control loop function
@@ -56,20 +51,26 @@ private:
 
   // Identify the largest distance ray (which is not an inf)
   void get_largest_distance_ray() {
+
     for (int i = 0; i < 720; ++i) {
 
-      // Left values
       if (!(std::isinf(ranges[i]))) {
-        if (ranges[i] > direction_) {
+        if (ranges[i] > max_ray_) {
           // get angle
-          direction_ = -PI_ / 2 + ranges[i];
+          max_ray_ = ranges[i];
           ray_value_ = i;
         }
       }
     }
 
-    RCLCPP_INFO(this->get_logger(), "Ray value: '%i'. Value '%f' ", ray_value_,
-                direction_);
+    direction_ = -PI_ / 2 + (ray_value_ / 4) * ((2 * PI_) / 360);
+
+    RCLCPP_INFO(this->get_logger(),
+                "Ray value and Direction (in rad): '%i' -> '%f'. Value '%f' ",
+                ray_value_, direction_, max_ray_);
+
+    ray_value_ = 0;
+    max_ray_ = -1.0;
   }
 
   rclcpp::TimerBase::SharedPtr timer_;
@@ -80,7 +81,8 @@ private:
   size_t count_;
 
   int ray_value_ = 0;
-  float direction_ = -1.0;
+  float direction_ = 0.0;
+  float max_ray_ = -1.0;
 
   double PI_ = M_PI;
   std::string robot_action_ = "";
