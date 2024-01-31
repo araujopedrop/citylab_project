@@ -46,24 +46,26 @@ private:
 
     message.linear.x = 0.1;
     message.angular.z = direction_ / 2;
+
     publisher_->publish(message);
   }
 
   // Identify the largest distance ray (which is not an inf)
   void get_largest_distance_ray() {
 
-    for (int i = 0; i < 720; ++i) {
-
+    for (int i = 180; i <= 540; ++i) {
+      // For the 720 rays, check which is not INF, and get me the longest one
       if (!(std::isinf(ranges[i]))) {
         if (ranges[i] > max_ray_) {
-          // get angle
+          // Get the new longest ray, and the associated index (ray_value_)
           max_ray_ = ranges[i];
           ray_value_ = i;
         }
       }
     }
 
-    direction_ = -PI_ / 2 + (ray_value_ / 4) * ((2 * PI_) / 360);
+    //           MIN_VALUE | RAY_VALUE TO ANGLE | FACTOR ANGLE TO RAD
+    direction_ = -PI_ + (ray_value_ / 2) * ((2 * PI_) / 360);
 
     RCLCPP_INFO(this->get_logger(),
                 "Ray value and Direction (in rad): '%i' -> '%f'. Value '%f' ",
