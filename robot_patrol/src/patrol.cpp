@@ -67,10 +67,6 @@ private:
     //           MIN_VALUE | RAY_VALUE TO ANGLE | FACTOR ANGLE TO RAD
     direction_ = -PI_ + (ray_value_ / 2) * ((2 * PI_) / 360);
 
-    RCLCPP_INFO(this->get_logger(),
-                "Ray value and Direction (in rad): '%i' -> '%f'. Value '%f' ",
-                ray_value_, direction_, max_ray_);
-
     ray_value_ = 0;
     max_ray_ = -1.0;
   }
