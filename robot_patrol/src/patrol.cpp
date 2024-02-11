@@ -1,5 +1,6 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/logger.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "std_msgs/msg/int32.hpp"
@@ -19,14 +20,15 @@ public:
   Patrol() : Node("patrol_node_"), count_(0) {
 
     // publisher to the /cmd_vel topic
-    publisher_ =
+    this->publisher_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
-    subscription_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "/scan", 10, std::bind(&Patrol::topic_callback, this, _1));
+    this->subscription_ =
+        this->create_subscription<sensor_msgs::msg::LaserScan>(
+            "/scan", 10, std::bind(&Patrol::topic_callback, this, _1));
 
     // control loop of 10 Hz
-    timer_ = this->create_wall_timer(
+    this->timer_ = this->create_wall_timer(
         100ms, std::bind(&Patrol::publish_velocity, this));
   }
 
@@ -35,7 +37,7 @@ private:
 
     // Actualizar el array con los datos del láser
     for (size_t i = 0; i < msg->ranges.size(); ++i) {
-      ranges[i] = msg->ranges[i];
+      this->ranges[i] = msg->ranges[i];
     }
 
     get_largest_distance_ray();
@@ -44,31 +46,70 @@ private:
   // Control loop function
   void publish_velocity() {
 
-    message.linear.x = 0.1;
-    message.angular.z = direction_ / 2;
+    bool collision = false;
 
-    publisher_->publish(message);
+    // Detect if there is a front obstacule
+
+    for (int i = 300; i <= 420; i++) {
+      if (this->ranges[i] < 0.5) {
+        collision = true;
+        break;
+      }
+    }
+
+    // if there is no risk of collision,
+    //   continue moving forward
+    // else
+    //   turn using direction_ value
+
+    if (collision == false) {
+      message.linear.x = 0.1;
+      message.angular.z = 0.0;
+    } else {
+      message.linear.x = 0.1;
+      message.angular.z = this->direction_ / 2;
+    }
+
+    this->publisher_->publish(message);
   }
 
   // Identify the largest distance ray (which is not an inf)
   void get_largest_distance_ray() {
 
-    for (int i = 180; i <= 540; ++i) {
-      // For the 720 rays, check which is not INF, and get me the longest one
-      if (!(std::isinf(ranges[i]))) {
-        if (ranges[i] > max_ray_) {
+    float min_value_ = 99;
+
+    for (int i = 180; i <= 540; i++) {
+      // For the 360 front rays, check which is not INF, and get me the longest
+      // one
+      if (!(std::isinf(this->ranges[i]))) {
+        if (this->ranges[i] > this->max_ray_) {
           // Get the new longest ray, and the associated index (ray_value_)
-          max_ray_ = ranges[i];
-          ray_value_ = i;
+          // considering adjacent values
+
+          for (int j = -10; j < 10; j++) {
+            if (j != 0) {
+              if (this->ranges[i + j] < min_value_) {
+                min_value_ = this->ranges[i + j];
+              }
+            }
+          }
+
+          if (min_value_ > 0.2) {
+            this->max_ray_ = this->ranges[i];
+            this->ray_value_ = i;
+          }
         }
       }
     }
 
-    //           MIN_VALUE | RAY_VALUE TO ANGLE | FACTOR ANGLE TO RAD
-    direction_ = -PI_ + (ray_value_ / 2) * ((2 * PI_) / 360);
+    this->direction_ =
+        -this->PI_ + (this->ray_value_ / 2) * ((2 * this->PI_) / 360);
 
-    ray_value_ = 0;
-    max_ray_ = -1.0;
+    RCLCPP_INFO(this->get_logger(), "Ray found %i - Value of ray: %f ",
+                this->ray_value_, this->max_ray_);
+
+    this->ray_value_ = 0;
+    this->max_ray_ = -1.0;
   }
 
   rclcpp::TimerBase::SharedPtr timer_;
@@ -81,12 +122,11 @@ private:
   int ray_value_ = 0;
   float direction_ = 0.0;
   float max_ray_ = -1.0;
+  float min_ray_ = 10.0;
+
+  float front_vel = 0.1;
 
   double PI_ = M_PI;
-  std::string robot_action_ = "";
-  std::string robot_action_forward = "robot_action_forward";
-  std::string robot_action_left = "robot_action_left";
-  std::string robot_action_right = "robot_action_right";
 };
 
 int main(int argc, char *argv[]) {
