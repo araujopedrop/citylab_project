@@ -1,14 +1,12 @@
-#include "custom_interfaces/srv/detail/get_direction__struct.hpp"
 #include "custom_interfaces/srv/get_direction.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
-#include "std_srvs/srv/empty.hpp"
 
 #include <memory>
 #include <string>
 
-using Empty = std_srvs::srv::Empty;
+using MyCustomServiceMessage = custom_interfaces::srv::GetDirection;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -16,16 +14,13 @@ class DirectionService : public rclcpp::Node {
 public:
   DirectionService() : Node("service_moving") {
 
-    srv_ = create_service<custom_interfaces::srv::GetDirection>(
+    srv_ = create_service<MyCustomServiceMessage>(
         "/direction_service",
         std::bind(&DirectionService::moving_callback, this, _1, _2));
-    publisher_ =
-        this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
   }
 
 private:
-  rclcpp::Service<custom_interfaces::srv::GetDirection>::SharedPtr srv_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
+  rclcpp::Service<MyCustomServiceMessage>::SharedPtr srv_;
 
   float ranges[720];
 
@@ -34,13 +29,12 @@ private:
   float total_dist_sec_left = 0;
 
   void moving_callback(
-      const std::shared_ptr<custom_interfaces::srv::GetDirection::Request>
-          request,
-      const std::shared_ptr<custom_interfaces::srv::GetDirection::Response>
-          response) {
+      const std::shared_ptr<MyCustomServiceMessage::Request> request,
+      const std::shared_ptr<MyCustomServiceMessage::Response> response) {
 
     sensor_msgs::msg::LaserScan msg = request->laser_data;
-    std::string direction_;
+
+    std::string direction_ = "";
 
     // Update array with laser values
     for (size_t i = 0; i < msg.ranges.size(); ++i) {
@@ -63,7 +57,7 @@ private:
 
     if (total_dist_sec_right >= total_dist_sec_front &&
         total_dist_sec_right >= total_dist_sec_left) {
-      direction_ = "right";
+      direction_ = "rightt";
     } else if (total_dist_sec_front >= total_dist_sec_right &&
                total_dist_sec_front >= total_dist_sec_left) {
       direction_ = "forward";
