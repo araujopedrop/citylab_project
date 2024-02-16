@@ -57,7 +57,7 @@ private:
 
     if (total_dist_sec_right >= total_dist_sec_front &&
         total_dist_sec_right >= total_dist_sec_left) {
-      direction_ = "rightt";
+      direction_ = "right";
     } else if (total_dist_sec_front >= total_dist_sec_right &&
                total_dist_sec_front >= total_dist_sec_left) {
       direction_ = "forward";
