@@ -16,7 +16,7 @@ using std::placeholders::_1;
  * member function as a callback from the timer. */
 
 class Patrol : public rclcpp::Node {
-public: 
+public:
   Patrol() : Node("patrol_node_"), count_(0) {
 
     // publisher to the /cmd_vel topic
