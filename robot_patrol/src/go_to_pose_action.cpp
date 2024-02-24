@@ -99,7 +99,9 @@ private:
     auto feedback = std::make_shared<GoToPoseAction::Feedback>();
 
     float threshold_ = 0.1;
+    float current_angle_ = 0.0;
     float target_angle_ = 0.0;
+    float error_angle_ = 0.0;
     float current_x_ = 0.0;
     float current_y_ = 0.0;
     float desired_x_ = 0.0;
@@ -113,7 +115,7 @@ private:
     current_y_ = this->current_pos_.y;
     desired_x_ = this->desired_pos_.x;
     desired_y_ = this->desired_pos_.y;
-    target_angle_ = goal->goal_pos.theta;
+    current_angle_ = this->current_pos_.theta;
 
     // Show in terminal
     RCLCPP_INFO(this->get_logger(), "Current position: x: %f - y: %f",
@@ -149,30 +151,26 @@ private:
       feedback->current_pos = this->current_pos_;
       goal_handle->publish_feedback(feedback);
 
-      // Calculate velocities
+      // Calculate error and publish velocities
       target_angle_ =
           std::atan2(desired_y_ - current_y_, desired_x_ - current_x_);
 
-      if (target_angle_ < -M_PI) {
-        target_angle_ += 2 * M_PI;
-      } else if (target_angle_ > M_PI) {
-        target_angle_ -= 2 * M_PI;
+      error_angle_ = target_angle_ - current_angle_;
+
+      if (error_angle_ < -M_PI) {
+        error_angle_ += 2 * M_PI;
+      } else if (error_angle_ > M_PI) {
+        error_angle_ -= 2 * M_PI;
       }
 
-      // Publish velocity
       this->robot_vel_.linear.x = 0.2;
-      this->robot_vel_.angular.z = target_angle_/2;
+      this->robot_vel_.angular.z = error_angle_;
       publisher_->publish(this->robot_vel_);
-
-      RCLCPP_INFO(this->get_logger(), "target_angle_: %f", target_angle_);
-      RCLCPP_INFO(this->get_logger(), "robot_vel_.linear.x: %f",
-                  this->robot_vel_.linear.x);
-      RCLCPP_INFO(this->get_logger(), "robot_vel_.angular.z: %f",
-                  this->robot_vel_.angular.z);
 
       // Update data
       current_x_ = this->current_pos_.x;
       current_y_ = this->current_pos_.y;
+      current_angle_ = this->current_pos_.theta;
 
       loop_rate.sleep();
     }
@@ -185,7 +183,7 @@ private:
       this->robot_vel_.angular.z = 0.0;
       publisher_->publish(this->robot_vel_);
 
-      // send result
+      // Send result
       result->status = true;
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Goal succeeded");
