@@ -100,6 +100,7 @@ private:
 
     float threshold_ = 0.1;
     float current_angle_ = 0.0;
+    float desired_angle_ = 0.0;
     float target_angle_ = 0.0;
     float error_angle_ = 0.0;
     float current_x_ = 0.0;
@@ -116,6 +117,8 @@ private:
     desired_x_ = this->desired_pos_.x;
     desired_y_ = this->desired_pos_.y;
     current_angle_ = this->current_pos_.theta;
+    desired_angle_ = this->desired_pos_.theta *
+                     0.01745; // Action input is given in degrees: *(2*PI / 360)
 
     // Show in terminal
     RCLCPP_INFO(this->get_logger(), "Current position: x: %f - y: %f",
@@ -130,7 +133,8 @@ private:
 
     // Control loop
     rclcpp::Rate loop_rate(10);
-    while (this->goal_reached(current_x_, current_y_, desired_x_, desired_y_,
+    while (this->goal_reached(current_x_, current_y_, current_angle_,
+                              desired_x_, desired_y_, desired_angle_,
                               threshold_) == false) {
 
       // Check if goal is cancelled
@@ -151,10 +155,24 @@ private:
       feedback->current_pos = this->current_pos_;
       goal_handle->publish_feedback(feedback);
 
-      // Calculate error and publish velocities
-      target_angle_ =
-          std::atan2(desired_y_ - current_y_, desired_x_ - current_x_);
+      // If I reached position, start searching desired orientation
+      // If not, continue searching position
 
+      if (this->pos_reached(current_x_, current_y_, desired_x_, desired_y_,
+                            threshold_) == false) {
+
+        target_angle_ =
+            std::atan2(desired_y_ - current_y_, desired_x_ - current_x_);
+
+        this->robot_vel_.linear.x = 0.2;
+
+      } else {
+
+        target_angle_ = desired_angle_;
+        this->robot_vel_.linear.x = 0.0;
+      }
+
+      // Calculate error and publish velocities
       error_angle_ = target_angle_ - current_angle_;
 
       if (error_angle_ < -M_PI) {
@@ -163,7 +181,6 @@ private:
         error_angle_ -= 2 * M_PI;
       }
 
-      this->robot_vel_.linear.x = 0.2;
       this->robot_vel_.angular.z = error_angle_;
       publisher_->publish(this->robot_vel_);
 
@@ -190,11 +207,26 @@ private:
     }
   }
 
-  bool goal_reached(float current_x, float current_y, float desired_x,
-                    float desired_y, float threshold) {
+  bool pos_reached(float current_x, float current_y, float desired_x,
+                   float desired_y, float threshold) {
 
     if (std::abs(current_x - desired_x) < threshold) {
       if (std::abs(current_y - desired_y) < threshold) {
+        RCLCPP_INFO(this->get_logger(), "Goal reached!");
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool goal_reached(float current_x, float current_y, float current_angle,
+                    float desired_x, float desired_y, float desired_angle,
+                    float threshold) {
+
+    if (pos_reached(current_x, current_y, desired_x, desired_y, threshold) ==
+        true) {
+      if (std::abs(current_angle - desired_angle) < threshold) {
         RCLCPP_INFO(this->get_logger(), "Goal reached!");
         return true;
       }
